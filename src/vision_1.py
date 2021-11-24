@@ -17,7 +17,6 @@ last_red_image1  =[0,0]
 last_blue_image2 =[0,0]
 last_red_image2  =[0,0]
 
-
 class image_converter:
 
     # Defines publisher and subscriber
@@ -43,12 +42,8 @@ class image_converter:
         self.robot_joint4_pub = rospy.Publisher("/robot/joint4_position_controller/command", Float64, queue_size=10)
         # record the begining time
         self.time_trajectory = rospy.get_time()
-        # initialize errors
         # self.time_previous_step = np.array([rospy.get_time()], dtype='float64')
         self.time_previous_step2 = np.array([rospy.get_time()], dtype='float64')
-
-        # initialize a publisher for end effector position
-        self.end_eff_pub = rospy.Publisher("/end_pos", Float64MultiArray, queue_size=10)
 
         self.joint2_pub = rospy.Publisher("/joints_ang2", Float64, queue_size=10)
         self.joint3_pub = rospy.Publisher("/joints_ang3", Float64, queue_size=10)
@@ -61,7 +56,15 @@ class image_converter:
         # hardcode green and yellow coordinates since yellow and green spheres do not move and this improves accuracy
         self.green_pos = np.array([399, 400, 543])
         self.yellow_pos = np.array([399, 399, 440])
+        self.last_j2 = 0
 
+        #publish angle
+        self.real2_pub = rospy.Publisher("real2", Float64, queue_size=10)
+        self.real3_pub = rospy.Publisher("real3", Float64, queue_size=10)
+        self.real4_pub = rospy.Publisher("real4", Float64, queue_size=10)
+        self.det2_pub = rospy.Publisher("det2", Float64, queue_size=10)
+        self.det3_pub = rospy.Publisher("det3", Float64, queue_size=10)
+        self.det4_pub = rospy.Publisher("det4", Float64, queue_size=10)
         rospy.sleep(0.4)
         
 
@@ -84,7 +87,7 @@ class image_converter:
                     last_red_image2[0] = cx
                     last_red_image2[1] = cy
                     return np.array([cx, cy])
-            #this is in case red is blocked by blue
+        #this is in case red is blocked by blue
         else:
             if image is self.cv_image1:
                 return np.array(last_red_image1)
@@ -109,7 +112,7 @@ class image_converter:
                     last_blue_image2[0] = cx
                     last_blue_image2[1] = cy
                     return np.array([cx, cy])
-        #this is in case red is blocked by blue
+        #this is in case red is blocked by yellow
         else:
             if self.cv_image1 is image:
                     return np.array(last_blue_image1)
@@ -139,49 +142,48 @@ class image_converter:
     def control_move(self):
         # estimate time step
         cur_time = np.array([rospy.get_time() - self.time_trajectory])
-        # self.time_previous_step2 = cur_time
         joint2 = (math.pi / 2) * math.sin(math.pi * cur_time / 15)
         joint3 = (math.pi / 2) * math.sin(math.pi * cur_time / 20)
         joint4 = (math.pi / 2) * math.sin(math.pi * cur_time / 18)
         return [joint2, joint3, joint4]
 
-    def length_of_vector(self, vect):
-        squared_sum = np.sum(vect ** 2)
-        return np.sqrt(squared_sum)
-
     def vector2angle(self, vect1, vect2):
         dot_vect1_vect2 = np.dot(vect1, vect2)
-        length_vect1 = self.length_of_vector(vect1)
-        length_vect2 = self.length_of_vector(vect2)
+        length_vect1 = np.linalg.norm(vect1)
+        length_vect2 = np.linalg.norm(vect2)
         return np.arccos(dot_vect1_vect2 / (length_vect1 * length_vect2))
 
     def calc_pos(self, pos1, pos2):
         x = pos2[0] - self.green_pos[0]
-        y = pos1[1] - self.green_pos[1]
+        y = pos1[0] - self.green_pos[1]
+        if ((-pos1[1] + self.yellow_pos[2]) < 0 or (-pos2[1] + self.yellow_pos[2]) < 0):
+            return np.array([x, y, 103])
         z_1 = -pos1[1] + self.green_pos[2]
         z_2 = -pos2[1] + self.green_pos[2]
         z = (z_1 + z_2) / 2
-        if ((z - self.yellow_pos[2]) < 0):
-            z = 103
         return np.array([x, y, z])
 
-    # calculate angles in naive way
+    # calculate angles in vectors
     def calc_angles(self):
-        a = self.pixel2meter_image1
-        b = self.pixel2meter_image2
+        #a = self.pixel2meter_image1
+        #b = self.pixel2meter_image2
         green = np.array([0, 0, 0])
         yellow = np.array([0, 0, 103])
-        blue1 = a * (self.detect_blue(self.cv_image1))
-        blue2 = b * (self.detect_blue(self.cv_image2))
+        blue1 = (self.detect_blue(self.cv_image1)) #a * 
+        blue2 = (self.detect_blue(self.cv_image2)) #b * 
+        blue_image = np.array([blue2[0],blue1[0],(blue1[1]+blue2[1])/2])
         blue = self.calc_pos(blue1, blue2)
-        red1 = a * (self.detect_red(self.cv_image1))
-        red2 = b * (self.detect_red(self.cv_image2))
+        red1 = (self.detect_red(self.cv_image1)) #a * 
+        red2 = (self.detect_red(self.cv_image2)) #b * 
+        red_image = np.array([red2[0],red1[0],(red1[1]+red2[1])/2])
         red = self.calc_pos(red1, red2)
 
         blue2red = red - blue
         yellow2blue = blue - yellow
-
-        
+        print('blue origin',blue_image)
+        print('blue calc',blue)
+        print('red origin',red_image)
+        print('red calc',red)
         # calculate rotation around y-axis using the new x-axis and origin x-axis.
         new_x = np.cross(np.array([0, 1, 0]), yellow2blue)
         j2 = self.vector2angle(new_x, np.array([1, 0, 0]))
@@ -189,24 +191,30 @@ class image_converter:
             j2 = np.pi - j2
         elif j2 < -(np.pi) / 2:
             j2 = - np.pi + j2
+        if blue[0] < 0:
+            j2 = -j2
         
-        
+
         # calculate rotation around x-axis by cross product origin y-axis
-        j3 = self.vector2angle(yellow2blue, np.array([0, 1, 0])) # - np.pi/2
+        j3 = self.vector2angle(yellow2blue, np.array([0, 1, 0])) - np.pi/2
         if j3 > (np.pi) / 2:
             j3 = np.pi - j3
         elif j3 < -(np.pi) / 2:
             j3 = -np.pi + j3
         
-
+        if abs(j3-np.pi) < 0.15:
+            j2 = self.last_j2
+        
         # calculate rotation around joint 4 by finding angle between vectors.
         j4 = self.vector2angle(yellow2blue, blue2red)
         if j4 > (np.pi) / 2:
             j4 = np.pi - j4
         elif j4 < -(np.pi) / 2:
             j4 = -np.pi + j4
+        if np.dot(blue2red, new_x) < 0:
+            j4 = -j4
         
-
+        self.last_j2 = j2
         return [j2, j3, j4]
 
     # Recieve data, process it, and publish
@@ -246,12 +254,19 @@ class image_converter:
             self.joint2_pub.publish(j2)
             self.joint3_pub.publish(j3)
             self.joint4_pub.publish(j4)
-            # print([math.degrees(self.joints.data[0]),math.degrees(self.joints.data[1]),math.degrees(self.joints.data[2] )])
-            print('differences')
-            print([math.degrees(j2) - math.degrees(self.joint2.data),
-                   math.degrees(j3) - math.degrees(self.joint3.data),
-                   math.degrees(j4) - math.degrees(self.joint4.data)])
+            self.det2_pub.publish(math.degrees(j2))
+            self.det3_pub.publish(math.degrees(j3))
+            self.det4_pub.publish(math.degrees(j4))
+            print('detected')
+            print([math.degrees(self.joints.data[0]),math.degrees(self.joints.data[1]),math.degrees(self.joints.data[2] )])
+            #print('differences')
+            #print([math.degrees(j2) - math.degrees(self.joint2.data),
+                   #math.degrees(j3) - math.degrees(self.joint3.data),
+                   #math.degrees(j4) - math.degrees(self.joint4.data)])
 
+            self.real2_pub.publish(math.degrees(self.joint2.data))
+            self.real3_pub.publish(math.degrees(self.joint3.data))
+            self.real4_pub.publish(math.degrees(self.joint4.data))
             self.robot_joint2_pub.publish(self.joint2)
             self.robot_joint3_pub.publish(self.joint3)
             self.robot_joint4_pub.publish(self.joint4)
@@ -283,7 +298,6 @@ def main(args):
     except KeyboardInterrupt:
         print("Shutting down")
     cv2.destroyAllWindows()
-
 
 # run the code if the node is called
 if __name__ == '__main__':
