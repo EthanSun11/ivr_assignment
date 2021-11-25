@@ -68,7 +68,7 @@ class image_converter:
         
 
     def detect_red(self, image):
-        # Isolate the blue colour in the image as a binary image
+        # Isolate the red colour in the image as a binary image
         mask = cv2.inRange(image, (0, 0, 100), (0, 0, 255))
         # This applies a dilate that makes the binary region larger (the more iterations the larger it becomes)
         kernel = np.ones((5, 5), np.uint8)
@@ -111,7 +111,7 @@ class image_converter:
                     last_blue_image2[0] = cx
                     last_blue_image2[1] = cy
                     return np.array([cx, cy])
-        #this is in case red is blocked by yellow
+        #this is in case blue is blocked by yellow
         else:
             if self.cv_image1 is image:
                     return np.array(last_blue_image1)
@@ -183,29 +183,29 @@ class image_converter:
         print('blue calc',blue)
         print('red origin',red_image)
         print('red calc',red)
-        # calculate rotation around y-axis using the new x-axis and origin x-axis.
-        new_x = np.cross(np.array([0, 1, 0]), yellow2blue)
-        j1 = self.vector2angle(new_x, np.array([1, 0, 0]))
-        if j1 > (np.pi) / 2:
-            j1 = np.pi - j1
-        elif j1 < -(np.pi) / 2:
-            j1 = - np.pi + j1
-        if blue[0] < 0:
-            j1 = -j1
-
-        # calculate rotation around x-axis by cross product origin y-axis
-        j3 = self.vector2angle(yellow2blue, np.array([0, 1, 0])) - np.pi/2
+        # joint3 is the angle between the z-axis and the link from yellow to blue.
+        j3 = self.vector2angle(yellow2blue, yellow)
         if j3 > (np.pi) / 2:
             j3 = np.pi - j3
         elif j3 < -(np.pi) / 2:
             j3 = -np.pi + j3
-        
+
+        # we can observe the rotation of joint1 by comparing 
+        # the projection of link from yellow to blue and the direction of original y-zxis.
+        j1 = self.vector2angle(np.array([yellow2blue[0], yellow2blue[1]]), np.array([0, -1]))
+        if yellow2blue[0] < 0:
+            j1 = -j1
+        if abs(j3-np.pi) < 0.15:
+            j2 = self.last_j2
+
+
         # calculate rotation around joint 4 by finding angle between vectors.
-        j4 = self.vector2angle(yellow2blue, blue2red)
+        j4 = abs(self.vector2angle(yellow2blue, blue2red))
         if j4 > (np.pi) / 2:
             j4 = np.pi - j4
         elif j4 < -(np.pi) / 2:
             j4 = -np.pi + j4
+        new_x = np.array([np.cos(j1), np.sin(j1), 0])
         if np.dot(blue2red, new_x) < 0:
             j4 = -j4
 
@@ -271,7 +271,6 @@ class image_converter:
     def callback1(self, data):
         # Recieve the image
         try:
-
             self.cv_image1 = self.bridge.imgmsg_to_cv2(data, "bgr8")
         except CvBridgeError as e:
             print(e)
