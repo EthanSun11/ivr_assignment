@@ -12,10 +12,11 @@ from sensor_msgs.msg import Image
 from std_msgs.msg import Float64MultiArray, Float64, Int16MultiArray
 from cv_bridge import CvBridge, CvBridgeError
 
-last_blue_image1 =[0,0]
-last_red_image1  =[0,0]
-last_blue_image2 =[0,0]
-last_red_image2  =[0,0]
+last_blue_image1 = [0, 0]
+last_red_image1 = [0, 0]
+last_blue_image2 = [0, 0]
+last_red_image2 = [0, 0]
+
 
 class image_converter:
 
@@ -35,19 +36,14 @@ class image_converter:
         self.bridge = CvBridge()
         # initialize a publisher to send joints' angular position to a topic called joints_pos
         self.joints_pub = rospy.Publisher("joints_pos", Float64MultiArray, queue_size=10)
-
-        # initialize a publisher to send joints' angular position to the robot
-        self.robot_joint1_pub = rospy.Publisher("/robot/joint1_position_controller/command", Float64, queue_size=10)
-        self.robot_joint3_pub = rospy.Publisher("/robot/joint3_position_controller/command", Float64, queue_size=10)
-        self.robot_joint4_pub = rospy.Publisher("/robot/joint4_position_controller/command", Float64, queue_size=10)
         # record the begining time
         self.time_trajectory = rospy.get_time()
         # self.time_previous_step = np.array([rospy.get_time()], dtype='float64')
         self.time_previous_step2 = np.array([rospy.get_time()], dtype='float64')
 
-        self.joint1_pub = rospy.Publisher("/joints_ang1", Float64, queue_size=10)
-        self.joint3_pub = rospy.Publisher("/joints_ang3", Float64, queue_size=10)
-        self.joint4_pub = rospy.Publisher("/joints_ang4", Float64, queue_size=10)
+        self.joint1_pub = rospy.Publisher("joint_angle_1", Float64, queue_size=10)
+        self.joint3_pub = rospy.Publisher("joint_angle_3", Float64, queue_size=10)
+        self.joint4_pub = rospy.Publisher("joint_angle_4", Float64, queue_size=10)
 
         # hardcoded them so that i do not calculate ratio every time
         self.pixel2meter_image1 = 0.034777349758716214
@@ -57,15 +53,11 @@ class image_converter:
         self.green_pos = np.array([399, 400, 543])
         self.yellow_pos = np.array([399, 399, 440])
 
-        #publish angle
-        self.real1_pub = rospy.Publisher("real1", Float64, queue_size=10)
-        self.real3_pub = rospy.Publisher("real3", Float64, queue_size=10)
-        self.real4_pub = rospy.Publisher("real4", Float64, queue_size=10)
+        # publish angle
         self.det1_pub = rospy.Publisher("det1", Float64, queue_size=10)
         self.det3_pub = rospy.Publisher("det3", Float64, queue_size=10)
         self.det4_pub = rospy.Publisher("det4", Float64, queue_size=10)
         rospy.sleep(0.4)
-        
 
     def detect_red(self, image):
         # Isolate the red colour in the image as a binary image
@@ -75,22 +67,22 @@ class image_converter:
         mask = cv2.dilate(mask, kernel, iterations=3)
         # Obtain the moments of the binary image
         M = cv2.moments(mask)
-        if M['m00'] != 0 :
+        if M['m00'] != 0:
             cx = int(M['m10'] / M['m00'])
             cy = int(M['m01'] / M['m00'])
             if image is self.cv_image1:
-                    last_red_image1[0] = cx
-                    last_red_image1[1] = cy
-                    return np.array([cx, cy])
+                last_red_image1[0] = cx
+                last_red_image1[1] = cy
+                return np.array([cx, cy])
             else:
-                    last_red_image2[0] = cx
-                    last_red_image2[1] = cy
-                    return np.array([cx, cy])
-        #this is in case red is blocked by blue
+                last_red_image2[0] = cx
+                last_red_image2[1] = cy
+                return np.array([cx, cy])
+        # this is in case red is blocked by blue
         else:
             if image is self.cv_image1:
                 return np.array(last_red_image1)
-            else :
+            else:
                 return np.array(last_red_image2)
 
     # Detecting the centre of the blue circle
@@ -100,23 +92,23 @@ class image_converter:
         mask = cv2.dilate(mask, kernel, iterations=3)
         M = cv2.moments(mask)
         # Calculate pixel coordinates for the centre of the blob
-        if M['m00'] != 0 :
+        if M['m00'] != 0:
             cx = int(M['m10'] / M['m00'])
             cy = int(M['m01'] / M['m00'])
             if self.cv_image1 is image:
-                    last_blue_image1[0] = cx
-                    last_blue_image1[1] = cy
-                    return np.array([cx, cy])
+                last_blue_image1[0] = cx
+                last_blue_image1[1] = cy
+                return np.array([cx, cy])
             else:
-                    last_blue_image2[0] = cx
-                    last_blue_image2[1] = cy
-                    return np.array([cx, cy])
-        #this is in case blue is blocked by yellow
+                last_blue_image2[0] = cx
+                last_blue_image2[1] = cy
+                return np.array([cx, cy])
+        # this is in case blue is blocked by yellow
         else:
             if self.cv_image1 is image:
-                    return np.array(last_blue_image1)
-            else :
-                    return np.array(last_blue_image2)
+                return np.array(last_blue_image1)
+            else:
+                return np.array(last_blue_image2)
 
     # Detecting the centre of the yellow circle
     def detect_yellow(self, image):
@@ -164,25 +156,21 @@ class image_converter:
 
     # calculate angles in vectors
     def calc_angles(self):
-        #a = self.pixel2meter_image1
-        #b = self.pixel2meter_image2
+        # a = self.pixel2meter_image1
+        # b = self.pixel2meter_image2
         green = np.array([0, 0, 0])
         yellow = np.array([0, 0, 103])
-        blue1 = (self.detect_blue(self.cv_image1)) #a * 
-        blue2 = (self.detect_blue(self.cv_image2)) #b * 
-        blue_image = np.array([blue2[0],blue1[0],(blue1[1]+blue2[1])/2])
+        blue1 = (self.detect_blue(self.cv_image1))
+        blue2 = (self.detect_blue(self.cv_image2))
+        blue_image = np.array([blue2[0], blue1[0], (blue1[1] + blue2[1]) / 2])
         blue = self.calc_pos(blue1, blue2)
-        red1 = (self.detect_red(self.cv_image1)) #a * 
-        red2 = (self.detect_red(self.cv_image2)) #b * 
-        red_image = np.array([red2[0],red1[0],(red1[1]+red2[1])/2])
+        red1 = (self.detect_red(self.cv_image1))
+        red2 = (self.detect_red(self.cv_image2))
+        red_image = np.array([red2[0], red1[0], (red1[1] + red2[1]) / 2])
         red = self.calc_pos(red1, red2)
 
         blue2red = red - blue
         yellow2blue = blue - yellow
-        print('blue origin',blue_image)
-        print('blue calc',blue)
-        print('red origin',red_image)
-        print('red calc',red)
         # joint3 is the angle between the z-axis and the link from yellow to blue.
         j3 = self.vector2angle(yellow2blue, yellow)
         if j3 > (np.pi) / 2:
@@ -190,14 +178,13 @@ class image_converter:
         elif j3 < -(np.pi) / 2:
             j3 = -np.pi + j3
 
-        # we can observe the rotation of joint1 by comparing 
+        # we can observe the rotation of joint1 by comparing
         # the projection of link from yellow to blue and the direction of original y-zxis.
         j1 = self.vector2angle(np.array([yellow2blue[0], yellow2blue[1]]), np.array([0, -1]))
         if yellow2blue[0] < 0:
             j1 = -j1
 
-
-        # calculate rotation around joint 4 by finding angle between vectors.
+        # calculate rotation around joint 4 by finding angle between links.
         j4 = abs(self.vector2angle(yellow2blue, blue2red))
         if j4 > (np.pi) / 2:
             j4 = np.pi - j4
@@ -208,69 +195,6 @@ class image_converter:
             j4 = -j4
 
         return [j1, j3, j4]
-
-    # Recieve data, process it, and publish
-    def callback2(self, data):
-        # Recieve the image
-        try:
-            self.cv_image2 = self.bridge.imgmsg_to_cv2(data, "bgr8")
-        except CvBridgeError as e:
-            print(e)
-        # Uncomment if you want to save the image
-        # cv2.imwrite('image_copy.png', cv_image)
-        # im2=cv2.imshow('window2', self.cv_image2)
-        # cv2.waitKey(1)
-
-        # image = np.concatenate((self.cv_image1, self.cv_image2), axis=1)
-        # im=cv2.imshow('camera1 and camera2', image)
-        # cv2.waitKey(1)
-
-        angles = self.control_move()
-        self.joint1 = Float64()
-        self.joint1.data = angles[0]
-        self.joint3 = Float64()
-        self.joint3.data = angles[1]
-        self.joint4 = Float64()
-        self.joint4.data = angles[2]
-        # Publish the results
-        try:
-
-            # The published joints detected by the vision are placed in array
-            self.joints = Float64MultiArray()
-            self.joints.data = self.calc_angles()
-            self.joints_pub.publish(self.joints)
-
-            j1 = self.joints.data[0]
-            j3 = self.joints.data[1]
-            j4 = self.joints.data[2]
-            self.joint1_pub.publish(j1)
-            self.joint3_pub.publish(j3)
-            self.joint4_pub.publish(j4)
-            self.det1_pub.publish(j1)
-            self.det3_pub.publish(j3)
-            self.det4_pub.publish(j4)
-            #self.det1_pub.publish(math.degrees(j1))
-            #self.det3_pub.publish(math.degrees(j3))
-            #self.det4_pub.publish(math.degrees(j4))
-            print('detected')
-            print([math.degrees(self.joints.data[0]),math.degrees(self.joints.data[1]),math.degrees(self.joints.data[2] )])
-            #print('differences')
-            #print([math.degrees(j1) - math.degrees(self.joint1.data),
-                   #math.degrees(j3) - math.degrees(self.joint3.data),
-                   #math.degrees(j4) - math.degrees(self.joint4.data)])
-
-            self.real1_pub.publish(self.joint1.data)
-            self.real3_pub.publish(self.joint3.data)
-            self.real4_pub.publish(self.joint4.data)
-            #self.real1_pub.publish(math.degrees(self.joint1.data))
-            #self.real3_pub.publish(math.degrees(self.joint3.data))
-            #self.real4_pub.publish(math.degrees(self.joint4.data))
-            self.robot_joint1_pub.publish(self.joint1)
-            self.robot_joint3_pub.publish(self.joint3)
-            self.robot_joint4_pub.publish(self.joint4)
-    
-        except CvBridgeError as e:
-            print(e)
 
     def callback1(self, data):
         # Recieve the image
@@ -287,6 +211,30 @@ class image_converter:
         except CvBridgeError as e:
             print(e)
 
+    # Recieve data, process it, and publish
+    def callback2(self, data):
+        # Recieve the image
+        try:
+            self.cv_image2 = self.bridge.imgmsg_to_cv2(data, "bgr8")
+        except CvBridgeError as e:
+            print(e)
+
+        # The published joints detected by the vision are placed in array
+        self.joints = Float64MultiArray()
+        self.joints.data = self.calc_angles()
+        self.joints_pub.publish(self.joints)
+
+        j1 = self.joints.data[0]
+        j3 = self.joints.data[1]
+        j4 = self.joints.data[2]
+        self.joint1_pub.publish(j1)
+        self.joint3_pub.publish(j3)
+        self.joint4_pub.publish(j4)
+        self.det1_pub.publish(j1)
+        self.det3_pub.publish(j3)
+        self.det4_pub.publish(j4)
+
+
 # call the class
 def main(args):
     ic = image_converter()
@@ -296,7 +244,7 @@ def main(args):
         print("Shutting down")
     cv2.destroyAllWindows()
 
+
 # run the code if the node is called
 if __name__ == '__main__':
     main(sys.argv)
-
