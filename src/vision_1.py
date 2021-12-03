@@ -254,9 +254,12 @@ class image_converter:
             self.joint2_pub.publish(j2)
             self.joint3_pub.publish(j3)
             self.joint4_pub.publish(j4)
-            self.det2_pub.publish(math.degrees(j2))
-            self.det3_pub.publish(math.degrees(j3))
-            self.det4_pub.publish(math.degrees(j4))
+            #self.det2_pub.publish(math.degrees(j2))
+            #self.det3_pub.publish(math.degrees(j3))
+            #self.det4_pub.publish(math.degrees(j4))
+            self.det2_pub.publish(j2)
+            self.det3_pub.publish(j3)
+            self.det4_pub.publish(j4)
             print('detected')
             print([math.degrees(self.joints.data[0]),math.degrees(self.joints.data[1]),math.degrees(self.joints.data[2] )])
             #print('differences')
@@ -264,9 +267,12 @@ class image_converter:
                    #math.degrees(j3) - math.degrees(self.joint3.data),
                    #math.degrees(j4) - math.degrees(self.joint4.data)])
 
-            self.real2_pub.publish(math.degrees(self.joint2.data))
-            self.real3_pub.publish(math.degrees(self.joint3.data))
-            self.real4_pub.publish(math.degrees(self.joint4.data))
+            #self.real2_pub.publish(math.degrees(self.joint2.data))
+            #self.real3_pub.publish(math.degrees(self.joint3.data))
+            #self.real4_pub.publish(math.degrees(self.joint4.data))
+            self.real2_pub.publish(self.joint2.data)
+            self.real3_pub.publish(self.joint3.data)
+            self.real4_pub.publish(self.joint4.data)
             self.robot_joint2_pub.publish(self.joint2)
             self.robot_joint3_pub.publish(self.joint3)
             self.robot_joint4_pub.publish(self.joint4)
@@ -302,3 +308,4 @@ def main(args):
 # run the code if the node is called
 if __name__ == '__main__':
     main(sys.argv)
+
