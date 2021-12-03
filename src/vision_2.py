@@ -195,8 +195,6 @@ class image_converter:
         j1 = self.vector2angle(np.array([yellow2blue[0], yellow2blue[1]]), np.array([0, -1]))
         if yellow2blue[0] < 0:
             j1 = -j1
-        if abs(j3-np.pi) < 0.15:
-            j2 = self.last_j2
 
 
         # calculate rotation around joint 4 by finding angle between vectors.
@@ -248,9 +246,12 @@ class image_converter:
             self.joint1_pub.publish(j1)
             self.joint3_pub.publish(j3)
             self.joint4_pub.publish(j4)
-            self.det1_pub.publish(math.degrees(j1))
-            self.det3_pub.publish(math.degrees(j3))
-            self.det4_pub.publish(math.degrees(j4))
+            self.det1_pub.publish(j1)
+            self.det3_pub.publish(j3)
+            self.det4_pub.publish(j4)
+            #self.det1_pub.publish(math.degrees(j1))
+            #self.det3_pub.publish(math.degrees(j3))
+            #self.det4_pub.publish(math.degrees(j4))
             print('detected')
             print([math.degrees(self.joints.data[0]),math.degrees(self.joints.data[1]),math.degrees(self.joints.data[2] )])
             #print('differences')
@@ -258,9 +259,12 @@ class image_converter:
                    #math.degrees(j3) - math.degrees(self.joint3.data),
                    #math.degrees(j4) - math.degrees(self.joint4.data)])
 
-            self.real1_pub.publish(math.degrees(self.joint1.data))
-            self.real3_pub.publish(math.degrees(self.joint3.data))
-            self.real4_pub.publish(math.degrees(self.joint4.data))
+            self.real1_pub.publish(self.joint1.data)
+            self.real3_pub.publish(self.joint3.data)
+            self.real4_pub.publish(self.joint4.data)
+            #self.real1_pub.publish(math.degrees(self.joint1.data))
+            #self.real3_pub.publish(math.degrees(self.joint3.data))
+            #self.real4_pub.publish(math.degrees(self.joint4.data))
             self.robot_joint1_pub.publish(self.joint1)
             self.robot_joint3_pub.publish(self.joint3)
             self.robot_joint4_pub.publish(self.joint4)
@@ -295,3 +299,4 @@ def main(args):
 # run the code if the node is called
 if __name__ == '__main__':
     main(sys.argv)
+
